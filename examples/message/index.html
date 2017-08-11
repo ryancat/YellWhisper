@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>YellWhisper message demo</title>
+
+    <style>
+      #app {
+        border: 1px solid;
+        width: 400px;
+        min-height: 350px;
+        margin: 20px;
+      }
+
+      .yellWisperComponent {
+        border: 1px solid;
+        min-width: 200px;
+        min-height: 100px;
+        margin: 10px;
+        padding: 5px;
+      }
+
+      #log {
+        border: 1px solid blue;
+        margin: 20px;
+        width: 400px;
+        min-height: 100px;
+        max-height: 300px;
+        overflow: auto;
+      }
+
+      button {
+        margin: 5px;
+        padding: 3px;
+        cursor: pointer;
+      }
+    </style>
+
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="log"></div>
+
+    <script src="../../dist/YellWhisper.js"></script>
+    <script>
+      let appModel = {
+        component: {
+          name: 'ParentComponent',
+          props: {
+            name: 'parent'
+          },
+          container: '#app',
+          children: [{
+            component: {
+              name: 'ChildComponentA',
+              props: {
+                name: 'Child A'
+              },
+              children: [{
+                component: {
+                  name: 'ChildComponentB',
+                  props: {
+                    name: 'Child B'
+                  }
+                }
+              }]
+            }
+          }, {
+            component: {
+              name: 'ChildComponentB',
+              props: {
+                name: 'Child B'
+              },
+              children: [{
+                component: {
+                  name: 'ChildComponentA',
+                  props: {
+                    name: 'Child A'
+                  },
+                  children: [{
+                    component: {
+                      name: 'ChildComponentB',
+                      props: {
+                        name: 'Child B'
+                      }
+                    }
+                  }]
+                }
+              }]
+            }
+          }]
+        }
+      }
+
+      class ParentComponent extends YellWhisper.Component {
+        constructor (props = {}, container) {
+          super(props, container)
+          this.render()
+        }
+
+        render () {
+          let name = this.props.name,
+              element = document.createElement('div')
+
+          element.innerHTML = `This is ${name}`
+
+          let buttonElement1 = document.createElement('button')
+          buttonElement1.textContent = 'Yell'
+          buttonElement1.addEventListener('click', () => {
+            this.yell('Heyyyyyy!')
+          })
+          let buttonElement2 = document.createElement('button')
+          buttonElement2.textContent = 'Whisper'
+          buttonElement2.addEventListener('click', () => {
+            this.whisper('Shhhhhh...')
+          })
+
+          element.appendChild(buttonElement1)
+          element.appendChild(buttonElement2)
+
+          return element
+        }
+
+        hear (message = '', data, meta = {}) {
+          YellWhisper.utils.log(`${this.constructor.name} hears ${message}`)
+        }
+      }
+      YellWhisper.registerComponent('ParentComponent', ParentComponent)
+
+      class ChildComponentA extends YellWhisper.Component {
+        constructor (props = {}, container) {
+          super(props, container)
+          this.render()
+        }
+
+        render () {
+          let name = this.props.name,
+              element = document.createElement('div')
+
+          element.innerHTML = `This is ${name}`
+
+          let buttonElement1 = document.createElement('button')
+          buttonElement1.textContent = 'Yell'
+          buttonElement1.addEventListener('click', () => {
+            this.yell('Heyyyyyy!')
+          })
+          let buttonElement2 = document.createElement('button')
+          buttonElement2.textContent = 'Whisper'
+          buttonElement2.addEventListener('click', () => {
+            this.whisper('Shhhhhh...')
+          })
+
+          element.appendChild(buttonElement1)
+          element.appendChild(buttonElement2)
+
+          return element
+        }
+
+        hear (message = '', data, meta = {}) {
+          YellWhisper.utils.log(`${this.constructor.name} hears ${message}`)
+        }
+      }
+      YellWhisper.registerComponent('ChildComponentA', ChildComponentA)
+
+      class ChildComponentB extends YellWhisper.Component {
+        constructor (props = {}, container) {
+          super(props, container)
+          this.render()
+        }
+
+        render () {
+          let name = this.props.name,
+              element = document.createElement('div')
+
+          element.innerHTML = `This is ${name}`
+
+          let buttonElement1 = document.createElement('button')
+          buttonElement1.textContent = 'Yell'
+          buttonElement1.addEventListener('click', () => {
+            this.yell('Heyyyyyy!')
+          })
+          let buttonElement2 = document.createElement('button')
+          buttonElement2.textContent = 'Whisper'
+          buttonElement2.addEventListener('click', () => {
+            this.whisper('Shhhhhh...')
+          })
+
+          element.appendChild(buttonElement1)
+          element.appendChild(buttonElement2)
+
+          return element
+        }
+
+        hear (message = '', data, meta = {}) {
+          YellWhisper.utils.log(`${this.constructor.name} hears ${message}`)
+        }
+      }
+      YellWhisper.registerComponent('ChildComponentB', ChildComponentB)
+
+      let appMetaModel = {}
+
+      /**
+      * Bootstrap the page
+      **/
+      function bootstrap () {
+        // Your implementation here
+        let container = document.querySelector(appModel.component.container) || document.getElementById('app')
+        decorate(appModel, appMetaModel, container)
+      }
+
+      function decorate (viewModel, metaModel, container) {
+        let componentModel = viewModel.component
+        if (componentModel) {
+          const componentClass = YellWhisper.registeredComponents[componentModel.name]
+
+          if (componentClass) {
+            component = new componentClass(componentModel.props, container)
+            metaModel.component = component
+            metaModel.componentName = componentModel.name
+          }
+        }
+
+        if (componentModel.children) {
+          let childrenContainer = component.getChildrenContainer()
+          metaModel.children = []
+          componentModel.children.forEach((childModel) => {
+            let childMetaModel = {
+              parent: metaModel
+            }
+            metaModel.children.push(childMetaModel)
+            decorate(childModel, childMetaModel, childrenContainer)
+          })
+        }
+      }
+
+      /**
+      * Message system
+      **/
+      function createMessageSystem () {
+        // Your message system logic here
+      }
+
+      bootstrap()
+      console.log(appMetaModel)
+    </script>
+
+  </body>
+</html>

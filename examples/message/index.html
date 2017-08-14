@@ -92,16 +92,9 @@
       }
 
       class ParentComponent extends YellWhisper.Component {
-        constructor (props = {}, container) {
-          super(props, container)
-          this.render()
-        }
-
         render () {
-          let name = this.props.name,
-              element = document.createElement('div')
-
-          element.innerHTML = `This is ${name}`
+          let element = document.createElement('div')
+          element.innerHTML = `This is ${this.props.name}`
 
           let buttonElement1 = document.createElement('button')
           buttonElement1.textContent = 'Yell'
@@ -116,6 +109,14 @@
 
           element.appendChild(buttonElement1)
           element.appendChild(buttonElement2)
+
+          // Reuse children container if exist
+          if (!this.childrenContainer) {
+            this.childrenContainer = document.createElement('div')
+            this.childrenContainer.classList.add('yellWhisperChildrenContainer')
+          }
+
+          element.appendChild(this.childrenContainer)
 
           return element
         }
@@ -127,11 +128,6 @@
       YellWhisper.registerComponent('ParentComponent', ParentComponent)
 
       class ChildComponentA extends YellWhisper.Component {
-        constructor (props = {}, container) {
-          super(props, container)
-          this.render()
-        }
-
         render () {
           let name = this.props.name,
               element = document.createElement('div')
@@ -151,6 +147,14 @@
 
           element.appendChild(buttonElement1)
           element.appendChild(buttonElement2)
+
+          // Reuse children container if exist
+          if (!this.childrenContainer) {
+            this.childrenContainer = document.createElement('div')
+            this.childrenContainer.classList.add('yellWhisperChildrenContainer')
+          }
+
+          element.appendChild(this.childrenContainer)
 
           return element
         }
@@ -162,11 +166,6 @@
       YellWhisper.registerComponent('ChildComponentA', ChildComponentA)
 
       class ChildComponentB extends YellWhisper.Component {
-        constructor (props = {}, container) {
-          super(props, container)
-          this.render()
-        }
-
         render () {
           let name = this.props.name,
               element = document.createElement('div')
@@ -187,6 +186,14 @@
           element.appendChild(buttonElement1)
           element.appendChild(buttonElement2)
 
+          // Reuse children container if exist
+          if (!this.childrenContainer) {
+            this.childrenContainer = document.createElement('div')
+            this.childrenContainer.classList.add('yellWhisperChildrenContainer')
+          }
+
+          element.appendChild(this.childrenContainer)
+
           return element
         }
 
@@ -196,7 +203,6 @@
       }
       YellWhisper.registerComponent('ChildComponentB', ChildComponentB)
 
-      let appMetaModel = {}
 
       /**
       * Bootstrap the page
@@ -204,32 +210,7 @@
       function bootstrap () {
         // Your implementation here
         let container = document.querySelector(appModel.component.container) || document.getElementById('app')
-        decorate(appModel, appMetaModel, container)
-      }
-
-      function decorate (viewModel, metaModel, container) {
-        let componentModel = viewModel.component
-        if (componentModel) {
-          const componentClass = YellWhisper.registeredComponents[componentModel.name]
-
-          if (componentClass) {
-            component = new componentClass(componentModel.props, container)
-            metaModel.component = component
-            metaModel.componentName = componentModel.name
-          }
-        }
-
-        if (componentModel.children) {
-          let childrenContainer = component.getChildrenContainer()
-          metaModel.children = []
-          componentModel.children.forEach((childModel) => {
-            let childMetaModel = {
-              parent: metaModel
-            }
-            metaModel.children.push(childMetaModel)
-            decorate(childModel, childMetaModel, childrenContainer)
-          })
-        }
+        YellWhisper.decorate(appModel, container)
       }
 
       /**
@@ -240,7 +221,6 @@
       }
 
       bootstrap()
-      console.log(appMetaModel)
     </script>
 
   </body>

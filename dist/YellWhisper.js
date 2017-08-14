@@ -115,7 +115,7 @@ var utils = {
   getMetaModel: function getMetaModel(component) {
     var resultMetaModel = null;
 
-    utils.traverseComponent(appMetaModel, function (comp, containerObj) {
+    utils.traverseComponent(YellWhisper.appMetaModel, function (comp, containerObj) {
       if (comp !== component) {
         return false;
       }
@@ -190,6 +190,7 @@ var YellWhisperComponent = function () {
     this.element.classList.add('yellWisperComponent');
     this.container.appendChild(this.element);
 
+    // We may need to have children container if component has children
     this.childrenContainer = null;
 
     // Try to render the first time
@@ -242,6 +243,20 @@ var YellWhisperComponent = function () {
         });
       }
     }
+
+    // overwrite
+    // hear function should be used when component needs to listen to any
+    // messages
+
+  }, {
+    key: 'hear',
+    value: function hear() {
+      var message = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
+      var data = arguments[1];
+      var meta = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+
+      utils.log(this.constructor.name + ' hears: ' + message + ', ' + meta);
+    }
   }, {
     key: '_willHear',
     value: function _willHear() {
@@ -263,39 +278,29 @@ var YellWhisperComponent = function () {
         if (utils.isString(renderResult)) {
           this.element.innerHTML = renderResult;
         } else if (utils.isHtmlElement(renderResult)) {
-          var childrenContainer = this.getChildrenContainer();
           this.element.innerHTML = '';
           this.element.appendChild(renderResult);
-          this.element.appendChild(childrenContainer);
         }
       }
     }
 
     // overwrite
+    // render function should return DOM element or the inner HTML string for
+    // the current component. It has to be in a single root element
 
   }, {
-    key: 'hear',
-    value: function hear() {
-      var message = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
-      var data = arguments[1];
-      var meta = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
-
-      utils.log(this.constructor.name + ' hears: ' + message + ', ' + meta);
+    key: 'render',
+    value: function render() {
+      return '';
     }
-
-    // overwrite
-
   }, {
-    key: 'getChildrenContainer',
-    value: function getChildrenContainer() {
-      this.childrenContainer = this.element.querySelector('.yellWhisperChildrenContainer');
-      if (!this.childrenContainer) {
-        this.childrenContainer = document.createElement('div');
-        this.childrenContainer.classList.add('yellWhisperChildrenContainer');
-        // this.element.appendChild(this.childrenContainer)
-      }
+    key: 'createChildrenContainer',
+    value: function createChildrenContainer() {
+      var childrenContainer = document.createElement('div');
+      childrenContainer.classList.add('yellWhisperChildrenContainer');
+      this.element.appendChild(childrenContainer);
 
-      return this.childrenContainer;
+      return childrenContainer;
     }
 
     // Overwrite
@@ -311,13 +316,52 @@ var YellWhisperComponent = function () {
 }();
 
 window.YellWhisper = {
+  debug: true,
   utils: utils,
   Component: YellWhisperComponent,
+  registeredComponents: {},
+  /**
+   * The meta model which contains only component tree
+   */
+  appMetaModel: {},
+  /**
+   * Register component so that it's available for init
+   */
   registerComponent: function registerComponent(componentName, component) {
     YellWhisper.registeredComponents[componentName] = component;
   },
-  registeredComponents: {},
-  debug: true
+  /**
+   * Decorate the given view model inside container
+   */
+  decorate: function decorate(viewModel, container) {
+    var metaModel = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : YellWhisper.appMetaModel;
+
+    var componentModel = viewModel.component,
+        component = void 0;
+
+    if (componentModel) {
+      var componentName = componentModel.name,
+          componentClass = YellWhisper.registeredComponents[componentName];
+
+      if (componentClass) {
+        component = new componentClass(componentModel.props, container);
+        metaModel.component = component;
+        metaModel.componentName = componentName;
+      }
+    }
+
+    if (componentModel.children) {
+      var childrenContainer = component.childrenContainer || component.createChildrenContainer();
+      metaModel.children = [];
+      componentModel.children.forEach(function (childModel) {
+        var childMetaModel = {
+          parent: metaModel
+        };
+        metaModel.children.push(childMetaModel);
+        YellWhisper.decorate(childModel, childrenContainer, childMetaModel);
+      });
+    }
+  }
 };
 
 /***/ })

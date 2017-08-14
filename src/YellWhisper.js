@@ -32,7 +32,7 @@ const utils = {
   getMetaModel: (component) => {
     let resultMetaModel = null
 
-    utils.traverseComponent(appMetaModel, (comp, containerObj) => {
+    utils.traverseComponent(YellWhisper.appMetaModel, (comp, containerObj) => {
       if (comp !== component) {
         return false
       }
@@ -98,6 +98,7 @@ class YellWhisperComponent {
     this.element.classList.add('yellWisperComponent')
     this.container.appendChild(this.element)
 
+    // We may need to have children container if component has children
     this.childrenContainer = null
 
     // Try to render the first time
@@ -140,6 +141,13 @@ class YellWhisperComponent {
     }
   }
 
+  // overwrite
+  // hear function should be used when component needs to listen to any
+  // messages
+  hear (message = '', data, meta = {}) {
+    utils.log(`${this.constructor.name} hears: ${message}, ${meta}`)
+  }
+
   _willHear (message = '', data, meta = {}) {
     // Make sure component hears the message
     this.hear(message, data, meta)
@@ -155,29 +163,25 @@ class YellWhisperComponent {
         this.element.innerHTML = renderResult
       }
       else if (utils.isHtmlElement(renderResult)) {
-        let childrenContainer = this.getChildrenContainer()
         this.element.innerHTML = ''
         this.element.appendChild(renderResult)
-        this.element.appendChild(childrenContainer)
       }
     }
   }
 
   // overwrite
-  hear (message = '', data, meta = {}) {
-    utils.log(`${this.constructor.name} hears: ${message}, ${meta}`)
+  // render function should return DOM element or the inner HTML string for
+  // the current component. It has to be in a single root element
+  render () {
+    return ''
   }
 
-  // overwrite
-  getChildrenContainer () {
-    this.childrenContainer = this.element.querySelector('.yellWhisperChildrenContainer')
-    if (!this.childrenContainer) {
-      this.childrenContainer = document.createElement('div')
-      this.childrenContainer.classList.add('yellWhisperChildrenContainer')
-      // this.element.appendChild(this.childrenContainer)
-    }
+  createChildrenContainer () {
+    let childrenContainer = document.createElement('div')
+    childrenContainer.classList.add('yellWhisperChildrenContainer')
+    this.element.appendChild(childrenContainer)
 
-    return this.childrenContainer
+    return childrenContainer
   }
 
   // Overwrite
@@ -187,11 +191,48 @@ class YellWhisperComponent {
 }
 
 window.YellWhisper = {
+  debug: true,
   utils: utils,
   Component: YellWhisperComponent,
+  registeredComponents: {},
+  /**
+   * The meta model which contains only component tree
+   */
+  appMetaModel: {},
+  /**
+   * Register component so that it's available for init
+   */
   registerComponent: (componentName, component) => {
     YellWhisper.registeredComponents[componentName] = component
   },
-  registeredComponents: {},
-  debug: true
+  /**
+   * Decorate the given view model inside container
+   */
+  decorate: (viewModel, container, metaModel = YellWhisper.appMetaModel) => {
+    let componentModel = viewModel.component,
+        component
+
+    if (componentModel) {
+      const componentName = componentModel.name,
+            componentClass = YellWhisper.registeredComponents[componentName]
+
+      if (componentClass) {
+        component = new componentClass(componentModel.props, container)
+        metaModel.component = component
+        metaModel.componentName = componentName
+      }
+    }
+
+    if (componentModel.children) {
+      let childrenContainer = component.childrenContainer || component.createChildrenContainer()
+      metaModel.children = []
+      componentModel.children.forEach((childModel) => {
+        let childMetaModel = {
+          parent: metaModel
+        }
+        metaModel.children.push(childMetaModel)
+        YellWhisper.decorate(childModel, childrenContainer, childMetaModel)
+      })
+    }
+  }
 }

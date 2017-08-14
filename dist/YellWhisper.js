@@ -112,50 +112,77 @@ var utils = {
     }
   },
 
-  getMetaModel: function getMetaModel(component) {
-    var resultMetaModel = null;
+  // getMetaModel: (component) => {
+  //   let resultMetaModel = null
 
-    utils.traverseComponent(YellWhisper.appMetaModel, function (comp, containerObj) {
-      if (comp !== component) {
-        return false;
-      }
+  //   utils.traverseComponent(YellWhisper._appMetaModel, (comp, containerObj) => {
+  //     if (comp !== component) {
+  //       return false
+  //     }
 
-      resultMetaModel = containerObj;
-      return true;
-    });
+  //     resultMetaModel = containerObj
+  //     return true
+  //   })
 
-    return resultMetaModel;
-  },
+  //   return resultMetaModel
+  // },
+
+  // getParentComponent: (component) => {
+  //   let componentMeta = utils.getMetaModel(component)
+  //   if (componentMeta && componentMeta.parent) {
+  //     return componentMeta.parent.component
+  //   }
+
+  //   return null
+  // },
 
   getParentComponent: function getParentComponent(component) {
-    var componentMeta = utils.getMetaModel(component);
-    if (componentMeta && componentMeta.parent) {
-      return componentMeta.parent.component;
+    var componentParentId = component._parentId;
+    if (componentParentId) {
+      return YellWhisper._appMetaModelMap[componentParentId].component;
     }
 
     return null;
   },
+
+  // getSiblingComponents: (component) => {
+  //   let componentMeta = utils.getMetaModel(component)
+  //   if (componentMeta && componentMeta.parent) {
+  //     let parentMeta = componentMeta.parent
+
+  //     if (parentMeta) {
+  //       return utils.getChildrenComponents(parentMeta.component).filter((siblingComponent) => siblingComponent !== component)
+  //     }
+  //   }
+
+  //   return null
+  // },
 
   getSiblingComponents: function getSiblingComponents(component) {
-    var componentMeta = utils.getMetaModel(component);
-    if (componentMeta && componentMeta.parent) {
-      var parentMeta = componentMeta.parent;
-
-      if (parentMeta) {
-        return utils.getChildrenComponents(parentMeta.component).filter(function (siblingComponent) {
-          return siblingComponent !== component;
-        });
-      }
+    var componentSiblingIds = component._siblingIds;
+    if (YellWhisper.utils.isArray(componentSiblingIds)) {
+      return componentSiblingIds.map(function (id) {
+        return YellWhisper._appMetaModelMap[id].component;
+      });
     }
 
     return null;
   },
 
+  // getChildrenComponents: (component) => {
+  //   let componentMeta = utils.getMetaModel(component)
+  //   if (componentMeta && componentMeta.children) {
+  //     return componentMeta.children.map((childMeta) => childMeta.component)
+  //   }
+
+  //   return null
+  // },
+
   getChildrenComponents: function getChildrenComponents(component) {
-    var componentMeta = utils.getMetaModel(component);
-    if (componentMeta && componentMeta.children) {
-      return componentMeta.children.map(function (childMeta) {
-        return childMeta.component;
+    var componentChildrenIds = component._childrenIds;
+    if (YellWhisper.utils.isArray(componentChildrenIds)) {
+      return componentChildrenIds.map(function (id) {
+        return YellWhisper._appMetaModelMap[id].component;
       });
     }
 
@@ -168,6 +195,10 @@ var utils = {
 
   isString: function isString(stringToCheck) {
     return typeof stringToCheck === 'string';
+  },
+
+  isArray: function isArray(arrayToCheck) {
+    return Array.isArray(arrayToCheck);
   }
 
   // isFunctionType: (functionToCheck) => {
@@ -195,51 +226,73 @@ var YellWhisperComponent = function () {
 
     // Try to render the first time
     this._tryRender();
+
+    // Start to read message
+    window.requestAnimationFrame(this._tryReadMessage.bind(this));
   }
 
   _createClass(YellWhisperComponent, [{
     key: 'yell',
     value: function yell() {
-      var message = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
-      var data = arguments[1];
-      var meta = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+      var message = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+
+      message.type = YellWhisper.messageType.YELL;
+      message.meta = message.meta || {};
 
       if (YellWhisper.debug) {
-        utils.log(this.constructor.name + ' yells: ' + message + ', ' + data);
+        utils.log(this.constructor.name + ' yells: ' + message.info + ', ' + message.data);
       }
 
-      var siblingComponents = utils.getSiblingComponents(this);
-      if (siblingComponents) {
-        meta.trace = meta.trace || [];
-        meta.trace.push(this);
-        siblingComponents.forEach(function (siblingComponent) {
-          siblingComponent._willHear(message, data, meta);
-        });
-      }
+      var meta = message.meta;
 
+      // Yell to sibling components
+      // TODO: Should sibling hear?
+      // let siblingComponents = utils.getSiblingComponents(this)
+
+      // if (utils.isArray(siblingComponents)) {
+      //   meta.trace = meta.trace || []
+      //   meta.trace.push(this)
+      //   // siblingComponents.forEach((siblingComponent) => {
+      //   //   siblingComponent._willHear(info, data, meta)
+      //   // })
+
+      //   siblingComponents.forEach((siblingComponent) => {
+      //     siblingComponent._addMessage(message)
+      //   })
+      // }
+
+      // Yell to parent
       var parentComponent = utils.getParentComponent(this);
       if (parentComponent) {
         meta.trace = meta.trace || [];
         meta.trace.push(this);
-        parentComponent._willHear(message, data, meta);
-        parentComponent.yell(message, data);
+
+        // parentComponent._willHear(info, data, meta)
+        parentComponent._addMessage(message);
       }
     }
   }, {
     key: 'whisper',
     value: function whisper() {
-      var message = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
-      var data = arguments[1];
-      var meta = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+      var message = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 
-      utils.log(this.constructor.name + ' whispers: ' + message + ', ' + data);
-      var childrenComponents = utils.getChildrenComponents(this);
-      if (childrenComponents) {
+      message.type = YellWhisper.messageType.WHISPER;
+      message.meta = message.meta || {};
+
+      if (YellWhisper.debug) {
+        utils.log(this.constructor.name + ' whispers: ' + message.info + ', ' + message.data);
+      }
+
+      var meta = message.meta,
+          childrenComponents = utils.getChildrenComponents(this);
+
+      if (utils.isArray(childrenComponents)) {
         meta.trace = meta.trace || [];
         meta.trace.push(this);
         childrenComponents.forEach(function (childComponent) {
-          childComponent._willHear(message, data, meta);
-          childComponent.whisper(message, data);
+          // childComponent._willHear(info, data, meta)
+          // childComponent.whisper(info, data)
+          childComponent._addMessage(message);
         });
       }
     }
@@ -251,22 +304,51 @@ var YellWhisperComponent = function () {
   }, {
     key: 'hear',
     value: function hear() {
-      var message = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
-      var data = arguments[1];
-      var meta = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+      var message = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 
-      utils.log(this.constructor.name + ' hears: ' + message + ', ' + meta);
+      utils.log(this.constructor.name + ' hears: ' + message.info + ', ' + message.meta);
+    }
+
+    /**
+     * Try to read message when possible
+     */
+
+  }, {
+    key: '_tryReadMessage',
+    value: function _tryReadMessage() {
+      var message = this._readMessage();
+
+      if (message) {
+        this._willHear(message);
+      }
+
+      window.requestAnimationFrame(this._tryReadMessage.bind(this));
     }
   }, {
     key: '_willHear',
-    value: function _willHear() {
-      var message = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
-      var data = arguments[1];
-      var meta = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
-
+    value: function _willHear(message) {
       // Make sure component hears the message
-      this.hear(message, data, meta);
+      this.hear(message);
       this._tryRender();
+
+      // Make sure we yell or whisper accordingly
+      if (message.type === YellWhisper.messageType.YELL) {
+        // let parentComponent = utils.getParentComponent(this)
+        // if (parentComponent) {
+        //   parentComponent.yell(message)
+        // }
+
+        this.yell(message);
+      }
+
+      if (message.type === YellWhisper.messageType.WHISPER) {
+        // let childrenComponents = utils.getChildrenComponents(this)
+        // if (utils.isArray(childrenComponents)) {
+        //   childrenComponents.forEach((childComponent) => childComponent.whisper(message))
+        // }
+
+        this.whisper(message);
+      }
     }
   }, {
     key: '_tryRender',
@@ -292,6 +374,61 @@ var YellWhisperComponent = function () {
     key: 'render',
     value: function render() {
       return '';
+    }
+
+    /**
+     * Set the hash id for component
+     */
+
+  }, {
+    key: '_setId',
+    value: function _setId(id) {
+      this._id = id;
+    }
+
+    /**
+     * Set the parent hash id
+     */
+
+  }, {
+    key: '_setParentId',
+    value: function _setParentId(id) {
+      this._parentId = id;
+    }
+
+    /**
+     * Set the sibling hash ids
+     */
+
+  }, {
+    key: '_setSiblingIds',
+    value: function _setSiblingIds() {
+      var ids = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+
+      this._siblingIds = ids;
+    }
+
+    /**
+     * Add id to children ids
+     */
+
+  }, {
+    key: '_addChildId',
+    value: function _addChildId(id) {
+      this._childrenIds = this._childrenIds || [];
+      this._childrenIds.push(id);
+    }
+  }, {
+    key: '_addMessage',
+    value: function _addMessage(message) {
+      if (message) {
+        this._messageQueue.push(message);
+      }
+    }
+  }, {
+    key: '_readMessage',
+    value: function _readMessage() {
+      return this._messageQueue.pop();
     }
   }, {
     key: 'createChildrenContainer',
@@ -319,11 +456,22 @@ window.YellWhisper = {
   debug: true,
   utils: utils,
   Component: YellWhisperComponent,
+  _componentCounter: 0,
+
+  messageType: {
+    YELL: 'YELL',
+    WHISPER: 'WHISPER'
+  },
+
   registeredComponents: {},
   /**
-   * The meta model which contains only component tree
+   * The meta model tree which contains meta model
    */
-  appMetaModel: {},
+  _appMetaModel: {},
+  /**
+   * The meta model map which maps key to meta model
+   */
+  _appMetaModelMap: {},
   /**
    * Register component so that it's available for init
    */
@@ -334,7 +482,7 @@ window.YellWhisper = {
    * Decorate the given view model inside container
    */
   decorate: function decorate(viewModel, container) {
-    var metaModel = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : YellWhisper.appMetaModel;
+    var metaModel = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : YellWhisper._appMetaModel;
 
     var componentModel = viewModel.component,
         component = void 0;
@@ -344,9 +492,38 @@ window.YellWhisper = {
           componentClass = YellWhisper.registeredComponents[componentName];
 
       if (componentClass) {
-        component = new componentClass(componentModel.props, container);
-        metaModel.component = component;
-        metaModel.componentName = componentName;
+
+        if (!metaModel.component) {
+          component = new componentClass(componentModel.props, container);
+          metaModel.component = component;
+          metaModel.componentName = componentName;
+          metaModel.id = ++YellWhisper._componentCounter;
+          YellWhisper._appMetaModelMap[metaModel.id] = metaModel;
+
+          component._setId(metaModel.id);
+          component._messageQueue = [];
+        } else {
+          component = metaModel.component;
+          // TODO: function setModel need to be implemented
+          component.setModel(componentModel.props, container);
+        }
+
+        // Make sure we always update parent id, in case parent changes
+        if (metaModel.parent) {
+          var parentMetaModel = metaModel.parent,
+              parentComponent = parentMetaModel.component;
+
+          component._setParentId(parentMetaModel.id);
+          component._setSiblingIds(parentMetaModel.children.map(function (childMeta) {
+            return childMeta.id;
+          }).filter(function (id) {
+            return id !== metaModel.id;
+          }));
+
+          if (parentComponent) {
+            parentComponent._addChildId(metaModel.id);
+          }
+        }
       }
     }
 
